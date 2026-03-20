@@ -4,6 +4,9 @@ import models
 from datetime import datetime
 import anthropic
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 models.Base.metadata.create_all(bind=engine)
@@ -34,7 +37,7 @@ LANGUAGE_MAP = {
     ".yml": "YAML",
 }
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "your_api_key_here")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
 def get_ai_overview(filename, content, language):
     try:
