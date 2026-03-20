@@ -34,7 +34,7 @@ LANGUAGE_MAP = {
     ".yml": "YAML",
 }
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "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")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "your_api_key_here")
 
 def get_ai_overview(filename, content, language):
     try:
@@ -129,6 +129,90 @@ def update_notes(file_id):
     file = db.query(models.CodeFile).filter(models.CodeFile.id == file_id).first()
     if file:
         file.notes = request.json.get("notes", "")
+        db.commit()
+    db.close()
+    return jsonify({"success": True})
+
+@app.route("/snippets")
+def snippets():
+    db = SessionLocal()
+    tag_filter = request.args.get("tag", "")
+    language_filter = request.args.get("language", "")
+    search = request.args.get("search", "")
+
+    query = db.query(models.Snippet)
+    if tag_filter:
+        query = query.filter(models.Snippet.tags.contains(tag_filter))
+    if language_filter:
+        query = query.filter(models.Snippet.language == language_filter)
+    if search:
+        query = query.filter(
+            models.Snippet.title.contains(search) |
+            models.Snippet.description.contains(search) |
+            models.Snippet.code.contains(search)
+        )
+
+    all_snippets_list = query.order_by(models.Snippet.date_saved.desc()).all()
+    all_tags = set()
+    for s in db.query(models.Snippet).all():
+        if s.tags:
+            for t in s.tags.split(","):
+                t = t.strip()
+                if t:
+                    all_tags.add(t)
+
+    languages = db.query(models.Snippet.language).distinct().all()
+    languages = [l[0] for l in languages]
+    db.close()
+
+    return render_template("snippets.html",
+        snippets=all_snippets_list,
+        all_tags=sorted(all_tags),
+        languages=languages,
+        selected_tag=tag_filter,
+        selected_language=language_filter,
+        search=search
+    )
+
+@app.route("/snippets/save", methods=["POST"])
+def save_snippet():
+    data = request.json
+    db = SessionLocal()
+    snippet = models.Snippet(
+        title=data.get("title", "Untitled Snippet"),
+        description=data.get("description", ""),
+        code=data.get("code", ""),
+        language=data.get("language", "Unknown"),
+        tags=data.get("tags", ""),
+        source_file=data.get("source_file", ""),
+        source_file_id=data.get("source_file_id"),
+        date_saved=datetime.utcnow()
+    )
+    db.add(snippet)
+    db.commit()
+    snippet_id = snippet.id
+    db.close()
+    return jsonify({"success": True, "id": snippet_id})
+
+@app.route("/snippets/<int:snippet_id>/delete", methods=["POST"])
+def delete_snippet(snippet_id):
+    db = SessionLocal()
+    snippet = db.query(models.Snippet).filter(models.Snippet.id == snippet_id).first()
+    if snippet:
+        db.delete(snippet)
+        db.commit()
+    db.close()
+    return jsonify({"success": True})
+
+@app.route("/snippets/<int:snippet_id>/edit", methods=["POST"])
+def edit_snippet(snippet_id):
+    data = request.json
+    db = SessionLocal()
+    snippet = db.query(models.Snippet).filter(models.Snippet.id == snippet_id).first()
+    if snippet:
+        snippet.title = data.get("title", snippet.title)
+        snippet.description = data.get("description", snippet.description)
+        snippet.tags = data.get("tags", snippet.tags)
         db.commit()
     db.close()
     return jsonify({"success": True})

@@ -12,7 +12,6 @@
 </head>
 <body>
     <div class="noise"></div>
-
     <header class="header">
         <div class="header-inner">
             <div class="logo">
@@ -21,7 +20,10 @@
                     <span class="logo-text">CodeVault</span>
                 </a>
             </div>
-            <a href="/" class="import-btn">← Back</a>
+            <nav class="nav-links">
+                <a href="/" class="nav-link">Files</a>
+                <a href="/snippets" class="nav-link">Snippets</a>
+            </nav>
         </div>
     </header>
 
@@ -36,35 +38,118 @@
 
         <div class="view-grid">
             <div class="view-left">
-                <!-- AI Overview -->
                 <div class="info-card">
                     <h3 class="info-title">⚡ AI Overview</h3>
                     <p class="info-content">{{ file.ai_overview }}</p>
                 </div>
-
-                <!-- Notes -->
                 <div class="info-card">
                     <h3 class="info-title">📝 My Notes</h3>
                     <textarea class="notes-edit" id="notesEdit" placeholder="Add your notes here...">{{ file.notes }}</textarea>
                     <button class="save-notes-btn" onclick="saveNotes({{ file.id }})">Save Notes</button>
                     <span class="save-status" id="saveStatus"></span>
                 </div>
+                <div class="info-card" style="border-left: 3px solid var(--accent2)">
+                    <h3 class="info-title" style="color:var(--accent2)">✂ Save a Snippet</h3>
+                    <p class="info-content">Highlight any code in the editor to the right, then click <strong style="color:var(--text)">"Save Snippet"</strong> to add it to your snippet library.</p>
+                </div>
             </div>
 
             <div class="view-right">
+                <div class="snippet-toolbar" id="snippetToolbar">
+                    <span class="snippet-toolbar-label">Code selected</span>
+                    <button class="snippet-toolbar-btn" onclick="openSnippetModal()">✂ Save Snippet</button>
+                </div>
                 <div class="code-container">
                     <div class="code-header">
                         <span>{{ file.filename }}</span>
-                        <button class="copy-btn" onclick="copyCode()">Copy</button>
+                        <button class="copy-btn" onclick="copyCode()">Copy All</button>
                     </div>
-                    <pre><code class="hljs" id="codeBlock">{{ file.content }}</code></pre>
+                    <pre id="codeWrapper"><code class="hljs" id="codeBlock">{{ file.content }}</code></pre>
                 </div>
             </div>
         </div>
     </main>
 
+    <!-- Save Snippet Modal -->
+    <div class="modal-overlay" id="snippetOverlay" onclick="closeSnippetModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>Save Snippet</h2>
+                <button class="modal-close" onclick="closeSnippetModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="code-container" style="margin-bottom:0">
+                    <div class="code-header"><span>Selected Code</span></div>
+                    <pre style="max-height:200px;overflow:auto;margin:0"><code class="hljs" id="snippetPreview"></code></pre>
+                </div>
+                <input type="text" id="snippetTitle" class="notes-input" style="min-height:unset;padding:0.6rem 0.8rem" placeholder="Snippet title (e.g. 'Flask route template')">
+                <textarea id="snippetDesc" class="notes-input" style="min-height:60px" placeholder="Description (optional)..."></textarea>
+                <input type="text" id="snippetTags" class="notes-input" style="min-height:unset;padding:0.6rem 0.8rem" placeholder="Tags: comma separated (e.g. flask, routing, api)">
+                <button class="submit-btn" onclick="saveSnippet()">Save to Library</button>
+                <div class="upload-status" id="snippetStatus"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         hljs.highlightAll();
+        let selectedSnippetCode = "";
+
+        document.getElementById('codeWrapper').addEventListener('mouseup', () => {
+            const selection = window.getSelection();
+            const selected = selection.toString().trim();
+            const toolbar = document.getElementById('snippetToolbar');
+            if (selected.length > 0) {
+                selectedSnippetCode = selected;
+                toolbar.classList.add('active');
+            } else {
+                toolbar.classList.remove('active');
+            }
+        });
+
+        function openSnippetModal() {
+            const preview = document.getElementById('snippetPreview');
+            preview.textContent = selectedSnippetCode;
+            hljs.highlightElement(preview);
+            document.getElementById('snippetOverlay').classList.add('active');
+        }
+
+        function closeSnippetModal() {
+            document.getElementById('snippetOverlay').classList.remove('active');
+            document.getElementById('snippetStatus').textContent = '';
+        }
+
+        async function saveSnippet() {
+            const title = document.getElementById('snippetTitle').value.trim();
+            if (!title) {
+                document.getElementById('snippetStatus').textContent = 'Please add a title.';
+                document.getElementById('snippetStatus').className = 'upload-status error';
+                return;
+            }
+            const response = await fetch('/snippets/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title,
+                    description: document.getElementById('snippetDesc').value,
+                    code: selectedSnippetCode,
+                    language: '{{ file.language }}',
+                    tags: document.getElementById('snippetTags').value,
+                    source_file: '{{ file.filename }}',
+                    source_file_id: {{ file.id }}
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                document.getElementById('snippetStatus').textContent = '✓ Saved to library!';
+                document.getElementById('snippetStatus').className = 'upload-status';
+                document.getElementById('snippetTitle').value = '';
+                document.getElementById('snippetDesc').value = '';
+                document.getElementById('snippetTags').value = '';
+                document.getElementById('snippetToolbar').classList.remove('active');
+                setTimeout(closeSnippetModal, 1200);
+            }
+        }
 
         function saveNotes(fileId) {
             const notes = document.getElementById('notesEdit').value;
@@ -84,8 +169,10 @@
             navigator.clipboard.writeText(code);
             const btn = document.querySelector('.copy-btn');
             btn.textContent = 'Copied!';
-            setTimeout(() => btn.textContent = 'Copy', 2000);
+            setTimeout(() => btn.textContent = 'Copy All', 2000);
         }
+
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSnippetModal(); });
     </script>
 </body>
 </html>

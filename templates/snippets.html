@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snippets — CodeVault</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+    <div class="noise"></div>
+
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo">
+                <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;color:inherit">
+                    <span class="logo-icon">⬡</span>
+                    <span class="logo-text">CodeVault</span>
+                </a>
+            </div>
+            <nav class="nav-links">
+                <a href="/" class="nav-link">Files</a>
+                <a href="/snippets" class="nav-link active">Snippets</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="page-title-row">
+            <h1 class="page-title">Snippet Library</h1>
+            <span class="file-count">{{ snippets|length }} snippet{% if snippets|length != 1 %}s{% endif %}</span>
+        </div>
+
+        <!-- Filters -->
+        <section class="filters-bar" style="margin-bottom:2rem">
+            <form method="GET" action="/snippets" class="filters-form" style="flex-wrap:wrap;gap:1rem">
+                <div class="filter-group">
+                    <label>Search</label>
+                    <input type="text" name="search" value="{{ search }}" placeholder="title, description, code..."
+                        class="search-input" onchange="this.form.submit()">
+                </div>
+                <div class="filter-group">
+                    <label>Language</label>
+                    <select name="language" onchange="this.form.submit()">
+                        <option value="">All</option>
+                        {% for lang in languages %}
+                        <option value="{{ lang }}" {% if lang == selected_language %}selected{% endif %}>{{ lang }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if all_tags %}
+                <div class="filter-group" style="flex-wrap:wrap;gap:0.4rem;align-items:center">
+                    <label>Tags</label>
+                    <a href="/snippets" class="tag {% if not selected_tag %}tag-active{% endif %}">all</a>
+                    {% for tag in all_tags %}
+                    <a href="/snippets?tag={{ tag }}" class="tag {% if tag == selected_tag %}tag-active{% endif %}">{{ tag }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </form>
+        </section>
+
+        <!-- Snippets Grid -->
+        <section class="file-grid">
+            {% if snippets %}
+                {% for snippet in snippets %}
+                <div class="file-card snippet-card" style="animation-delay: {{ loop.index0 * 0.07 }}s">
+                    <div class="card-top">
+                        <span class="lang-badge lang-{{ snippet.language|lower|replace('+','plus')|replace('#','sharp') }}">{{ snippet.language }}</span>
+                        <span class="file-date">{{ snippet.date_saved.strftime('%b %d, %Y') }}</span>
+                    </div>
+                    <h3 class="file-name">{{ snippet.title }}</h3>
+                    {% if snippet.description %}
+                    <p class="file-overview">{{ snippet.description }}</p>
+                    {% endif %}
+                    {% if snippet.source_file %}
+                    <p class="snippet-source">from <a href="/file/{{ snippet.source_file_id }}" class="source-link">{{ snippet.source_file }}</a></p>
+                    {% endif %}
+                    {% if snippet.tags %}
+                    <div class="snippet-tags">
+                        {% for tag in snippet.tags.split(',') %}
+                            {% if tag.strip() %}
+                            <a href="/snippets?tag={{ tag.strip() }}" class="tag">{{ tag.strip() }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Code preview -->
+                    <div class="snippet-preview">
+                        <pre><code class="hljs">{{ snippet.code[:300] }}{% if snippet.code|length > 300 %}...{% endif %}</code></pre>
+                    </div>
+
+                    <div class="card-actions">
+                        <button class="btn-view" onclick="copySnippet({{ snippet.id }}, this)" data-code="{{ snippet.code | e }}">Copy</button>
+                        <button class="btn-view" onclick="expandSnippet({{ snippet.id }})">Expand</button>
+                        <button class="btn-delete" onclick="deleteSnippet({{ snippet.id }}, this)">Delete</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">{ }</div>
+                    <h2>No snippets yet</h2>
+                    <p>Open a file and highlight code to save your first snippet</p>
+                    <a href="/" class="import-btn">← Go to Files</a>
+                </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <!-- Expand Modal -->
+    <div class="modal-overlay" id="expandOverlay" onclick="closeExpand()">
+        <div class="modal" style="max-width:800px;width:95%" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="expandTitle">Snippet</h2>
+                <button class="modal-close" onclick="closeExpand()">✕</button>
+            </div>
+            <div class="modal-body" style="padding:0">
+                <div class="code-container" style="border:none">
+                    <div class="code-header">
+                        <span id="expandLang"></span>
+                        <button class="copy-btn" onclick="copyExpandedCode()">Copy</button>
+                    </div>
+                    <pre style="max-height:70vh;overflow:auto;margin:0"><code class="hljs" id="expandCode"></code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        hljs.highlightAll();
+
+        // Store snippets data for expand modal
+        const snippetData = {
+            {% for snippet in snippets %}
+            {{ snippet.id }}: {
+                title: {{ snippet.title | tojson }},
+                code: {{ snippet.code | tojson }},
+                language: {{ snippet.language | tojson }}
+            },
+            {% endfor %}
+        };
+
+        function copySnippet(id, btn) {
+            const code = snippetData[id].code;
+            navigator.clipboard.writeText(code);
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }
+
+        function expandSnippet(id) {
+            const s = snippetData[id];
+            document.getElementById('expandTitle').textContent = s.title;
+            document.getElementById('expandLang').textContent = s.language;
+            const codeEl = document.getElementById('expandCode');
+            codeEl.textContent = s.code;
+            hljs.highlightElement(codeEl);
+            document.getElementById('expandOverlay').classList.add('active');
+        }
+
+        function closeExpand() {
+            document.getElementById('expandOverlay').classList.remove('active');
+        }
+
+        function copyExpandedCode() {
+            const code = document.getElementById('expandCode').innerText;
+            navigator.clipboard.writeText(code);
+            const btn = document.querySelector('#expandOverlay .copy-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }
+
+        async function deleteSnippet(id, btn) {
+            if (!confirm('Delete this snippet?')) return;
+            const card = btn.closest('.snippet-card');
+            card.style.transition = 'opacity 0.3s, transform 0.3s';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            await fetch(`/snippets/${id}/delete`, { method: 'POST' });
+            setTimeout(() => card.remove(), 300);
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeExpand();
+        });
+    </script>
+</body>
+</html>

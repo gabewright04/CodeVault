@@ -17,6 +17,10 @@
                 <span class="logo-icon">⬡</span>
                 <span class="logo-text">CodeVault</span>
             </div>
+            <nav class="nav-links">
+                <a href="/" class="nav-link active">Files</a>
+                <a href="/snippets" class="nav-link">Snippets</a>
+            </nav>
             <button class="import-btn" onclick="openModal()">+ Import File</button>
         </div>
     </header>
@@ -70,7 +74,11 @@
                     <div class="empty-icon">⬡</div>
                     <h2>Your vault is empty</h2>
                     <p>Import your first code file to get started</p>
-                    <button class="import-btn" onclick="openModal()">+ Import File</button>
+                    <nav class="nav-links">
+                <a href="/" class="nav-link active">Files</a>
+                <a href="/snippets" class="nav-link">Snippets</a>
+            </nav>
+            <button class="import-btn" onclick="openModal()">+ Import File</button>
                 </div>
             {% endif %}
         </section>
@@ -84,12 +92,12 @@
                 <button class="modal-close" onclick="closeModal()">✕</button>
             </div>
             <div class="modal-body">
-                <div class="drop-zone" id="dropZone">
+                <label for="fileInput" class="drop-zone" id="dropZone">
                     <div class="drop-icon">⬆</div>
-                    <p>Drop your file here or <label for="fileInput" class="file-label">browse</label></p>
+                    <p>Drop your file here or <span class="file-label">browse</span></p>
                     <input type="file" id="fileInput" hidden onchange="handleFileSelect(this)">
                     <span class="drop-hint">Supports .py .js .html .css .java .cpp and more</span>
-                </div>
+                </label>
                 <div class="selected-file" id="selectedFile" style="display:none">
                     <span class="selected-icon">📄</span>
                     <span id="selectedFileName"></span>
