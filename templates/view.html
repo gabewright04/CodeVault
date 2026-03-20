@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ file.filename }} — CodeVault</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+    <div class="noise"></div>
+
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo">
+                <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;color:inherit">
+                    <span class="logo-icon">⬡</span>
+                    <span class="logo-text">CodeVault</span>
+                </a>
+            </div>
+            <a href="/" class="import-btn">← Back</a>
+        </div>
+    </header>
+
+    <main class="main view-main">
+        <div class="view-header">
+            <div class="view-meta">
+                <span class="lang-badge lang-{{ file.language|lower|replace('+', 'plus')|replace('#', 'sharp') }}">{{ file.language }}</span>
+                <span class="file-date">Imported {{ file.date_imported.strftime('%B %d, %Y at %I:%M %p') }}</span>
+            </div>
+            <h1 class="view-filename">{{ file.filename }}</h1>
+        </div>
+
+        <div class="view-grid">
+            <div class="view-left">
+                <!-- AI Overview -->
+                <div class="info-card">
+                    <h3 class="info-title">⚡ AI Overview</h3>
+                    <p class="info-content">{{ file.ai_overview }}</p>
+                </div>
+
+                <!-- Notes -->
+                <div class="info-card">
+                    <h3 class="info-title">📝 My Notes</h3>
+                    <textarea class="notes-edit" id="notesEdit" placeholder="Add your notes here...">{{ file.notes }}</textarea>
+                    <button class="save-notes-btn" onclick="saveNotes({{ file.id }})">Save Notes</button>
+                    <span class="save-status" id="saveStatus"></span>
+                </div>
+            </div>
+
+            <div class="view-right">
+                <div class="code-container">
+                    <div class="code-header">
+                        <span>{{ file.filename }}</span>
+                        <button class="copy-btn" onclick="copyCode()">Copy</button>
+                    </div>
+                    <pre><code class="hljs" id="codeBlock">{{ file.content }}</code></pre>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        hljs.highlightAll();
+
+        function saveNotes(fileId) {
+            const notes = document.getElementById('notesEdit').value;
+            fetch(`/file/${fileId}/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes })
+            }).then(() => {
+                const status = document.getElementById('saveStatus');
+                status.textContent = 'Saved!';
+                setTimeout(() => status.textContent = '', 2000);
+            });
+        }
+
+        function copyCode() {
+            const code = document.getElementById('codeBlock').innerText;
+            navigator.clipboard.writeText(code);
+            const btn = document.querySelector('.copy-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }
+    </script>
+</body>
+</html>

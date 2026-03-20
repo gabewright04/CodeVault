@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeVault</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="noise"></div>
+
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo">
+                <span class="logo-icon">⬡</span>
+                <span class="logo-text">CodeVault</span>
+            </div>
+            <button class="import-btn" onclick="openModal()">+ Import File</button>
+        </div>
+    </header>
+
+    <main class="main">
+        <!-- Filters -->
+        <section class="filters-bar">
+            <form method="GET" action="/" class="filters-form">
+                <div class="filter-group">
+                    <label>Language</label>
+                    <select name="language" onchange="this.form.submit()">
+                        <option value="">All Languages</option>
+                        {% for lang in languages %}
+                        <option value="{{ lang }}" {% if lang == selected_language %}selected{% endif %}>{{ lang }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Sort By</label>
+                    <select name="sort" onchange="this.form.submit()">
+                        <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest First</option>
+                        <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest First</option>
+                    </select>
+                </div>
+                <div class="file-count">{{ files|length }} file{% if files|length != 1 %}s{% endif %}</div>
+            </form>
+        </section>
+
+        <!-- File Grid -->
+        <section class="file-grid">
+            {% if files %}
+                {% for file in files %}
+                <div class="file-card" style="animation-delay: {{ loop.index0 * 0.07 }}s">
+                    <div class="card-top">
+                        <span class="lang-badge lang-{{ file.language|lower|replace('+', 'plus')|replace('#', 'sharp') }}">{{ file.language }}</span>
+                        <span class="file-date">{{ file.date_imported.strftime('%b %d, %Y') }}</span>
+                    </div>
+                    <h3 class="file-name">{{ file.filename }}</h3>
+                    <p class="file-overview">{{ file.ai_overview[:120] }}{% if file.ai_overview|length > 120 %}...{% endif %}</p>
+                    {% if file.notes %}
+                    <p class="file-notes">📝 {{ file.notes[:80] }}{% if file.notes|length > 80 %}...{% endif %}</p>
+                    {% endif %}
+                    <div class="card-actions">
+                        <a href="/file/{{ file.id }}" class="btn-view">View</a>
+                        <button class="btn-delete" onclick="deleteFile({{ file.id }}, this)">Delete</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">⬡</div>
+                    <h2>Your vault is empty</h2>
+                    <p>Import your first code file to get started</p>
+                    <button class="import-btn" onclick="openModal()">+ Import File</button>
+                </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <!-- Import Modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>Import Code File</h2>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-icon">⬆</div>
+                    <p>Drop your file here or <label for="fileInput" class="file-label">browse</label></p>
+                    <input type="file" id="fileInput" hidden onchange="handleFileSelect(this)">
+                    <span class="drop-hint">Supports .py .js .html .css .java .cpp and more</span>
+                </div>
+                <div class="selected-file" id="selectedFile" style="display:none">
+                    <span class="selected-icon">📄</span>
+                    <span id="selectedFileName"></span>
+                </div>
+                <textarea class="notes-input" id="notesInput" placeholder="Add personal notes (optional)..."></textarea>
+                <button class="submit-btn" id="submitBtn" onclick="uploadFile()">Import to Vault</button>
+                <div class="upload-status" id="uploadStatus"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
